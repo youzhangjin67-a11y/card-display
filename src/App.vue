@@ -6,6 +6,11 @@
       </div>
       <div v-if="settingsOpen" class="settings-panel">
         <div class="settings-row">
+          <button class="settings-apply" @click="cardEditorVisible = !cardEditorVisible">
+            {{ cardEditorVisible ? '关闭卡片编辑' : '打开卡片编辑' }}
+          </button>
+        </div>
+        <div class="settings-row">
           <label>上传视频</label>
           <input type="file" accept="video/*" @change="onVideo" />
         </div>
@@ -25,17 +30,15 @@
         <!-- Card Editor Panel -->
         <div v-if="cardEditorVisible" class="card-editor-panel">
           <div class="card-editor-toolbar">
-            <button @click="addNewCard" style="margin-right: 8px;">添加</button>
-            <button @click="removeCard($index)" v-for="card in editorCards" :key="card.id" style="margin-left: 8px;">删</button>
+            <button @click="addNewCard" style="margin-right: 8px;">添加卡片</button>
           </div>
           
-          <template v-for="(card, index) in editorCards" :key="card.id">
-            <div class="card-editor-row">
-              <span class="card-editor-label">图片:</span>
-              <input type="file" @change="onCardImageChange(index, $event)" accept="image/*" style="margin: 4px 0;" />
-              <input type="text" v-model="card.name" class="card-editor-name" style="margin: 4px 0; width: 120px;" />
-            </div>
-          </template>
+          <div class="card-editor-row" v-for="(card, index) in editorCards" :key="card.id">
+            <span class="card-editor-label">#{{ index + 1 }}</span>
+            <input type="file" @change="onCardImageChange(index, $event)" accept="image/*" style="margin: 4px 0;" />
+            <input type="text" v-model="card.name" class="card-editor-name" style="margin: 4px 0; width: 120px;" placeholder="卡片名称" />
+            <button @click="removeCard(index)" style="margin-left: 8px; color: #d00;">删除</button>
+          </div>
         </div>
         <div class="settings-actions">
           <button class="settings-apply" @click="applyCards">应用卡片信息</button>
@@ -99,6 +102,7 @@ const scrollText = ref(
 )
 
 const settingsOpen = ref(false)
+const cardEditorVisible = ref(false)
 const edits = ref({})
 
 const images = import.meta.glob('./assets/wupin/*.png', { eager: true, import: 'default' })
