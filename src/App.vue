@@ -74,7 +74,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Card from '@/components/Card.vue'
 
-const bannerVideo = ref('/banner.mp4')
+const bannerVideo = ref('/video_activity.mp4')
 const scrollText = ref(
   '欢迎来到卡牌陈列馆，全服限时活动火热进行中，稀有道具限时掉落，敬请关注！'
 )
@@ -175,7 +175,16 @@ function submit() {
 
 function onVideo(e) {
   const file = e.target.files && e.target.files[0]
-  if (file) bannerVideo.value = URL.createObjectURL(file)
+  if (file) {
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/mpeg', 'video/x-m4v', 'video/3gpp']
+    if (validTypes.includes(file.type) || file.name.lowercase().endsWith('.mp4') || file.name.lowercase().endsWith('.mov')) {
+      URL.revokeObjectURL(bannerVideo.value)
+      bannerVideo.value = URL.createObjectURL(file)
+      showToast('视频已设置')
+    } else {
+      alert('仅支持 MP4/MOV 格式的视频文件')
+    }
+  }
 }
 
 function toggleSettings() {
@@ -199,15 +208,18 @@ const cardsJson = ref('')
 
 function applyCards() {
   try {
-    const arr = JSON.parse(cardsJson.value)
+    const val = cardsJson.value || '[]'
+    let arr = JSON.parse(val)
+    if (!Array.isArray(arr)) arr = []
+    // Convert to map by id
     const map = {}
     for (const c of arr) {
       if (c && c.id != null) {
         map[c.id] = {
-          name: c.name,
-          type: c.type,
-          rarity: c.rarity,
-          limited: !!c.limited,
+          name: c.name || `物品 ${c.id}`,
+          type: c.type || 'prop',
+          rarity: c.rarity !== undefined ? c.rarity : 1,
+          limited: c.limited === true || c.limited === 'true',
         }
       }
     }
