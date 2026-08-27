@@ -237,6 +237,57 @@ function onCardImageChange(index, e) {
     editorCards.value[index].image = objectUrl
     showToast('卡片图片已更新')
   }
+
+
+function saveCardEdits() {
+  try {
+    // Merge editorCards into cards
+    const editorMap = {}
+    editorCards.value.forEach(card => {
+      editorMap[card.id] = card
+    })
+    
+    // Update cards: replace edited ones, keep rest
+    const updatedCards = cards.value.map(c => {
+      if (editorMap[c.id]) {
+        return { ...c, name: editorMap[c.id].name, image: editorMap[c.id].image }
+      }
+      return c
+    })
+    
+    // Add new cards that don't exist yet
+    const maxExistingId = Math.max(...cards.value.map(c => c.id), 0)
+    const newCards = editorCards.value.filter(c => c.id > maxExistingId)
+    updatedCards.push(...newCards)
+    
+    cards.value = updatedCards
+    editorCards.value = updatedCards.map((c, i) => ({
+      id: i + 1,
+      type: c.type || 'prop',
+      image: c.image || null,
+      name: c.name || `物品 ${i + 1}`,
+    }))
+    cardEditorVisible.value = false
+    showToast('卡片编辑已保存')
+  } catch (e) {
+    showToast('保存失败，请重试')
+    console.error(e)
+  }
+}
+
+
+
+function resetCardEdits() {
+  editorCards.value = cards.value.map((c, i) => ({
+    id: i + 1,
+    type: c.type || 'prop',
+    image: c.image || null,
+    name: c.name || `物品 ${i + 1}`,
+  }))
+  showToast('卡片已重置')
+  cardEditorVisible.value = false
+}
+
 }
 
 function toggleSettings() {
