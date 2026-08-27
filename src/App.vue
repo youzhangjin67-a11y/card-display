@@ -31,7 +31,6 @@
         muted
         loop
         playsinline
-        controls
       ></video>
     </div>
     <div class="scroll-title">
