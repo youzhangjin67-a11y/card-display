@@ -16,6 +16,26 @@
         <div class="settings-row">
           <label>卡片信息 (JSON)</label>
           <textarea v-model="cardsJson" class="settings-textarea" spellcheck="false"></textarea>
+        </div>        <div class="settings-row" v-if="cardEditorVisible">
+          <label>卡片编辑</label>
+          <button class="settings-apply" @click="saveCardEdits">保存卡片</button>
+          <button @click="resetCardEdits" style="margin-left: 8px;">重置</button>
+        </div>
+        
+        <!-- Card Editor Panel -->
+        <div v-if="cardEditorVisible" class="card-editor-panel">
+          <div class="card-editor-toolbar">
+            <button @click="addNewCard" style="margin-right: 8px;">添加</button>
+            <button @click="removeCard($index)" v-for="card in editorCards" :key="card.id" style="margin-left: 8px;">删</button>
+          </div>
+          
+          <template v-for="(card, index) in editorCards" :key="card.id">
+            <div class="card-editor-row">
+              <span class="card-editor-label">图片:</span>
+              <input type="file" @change="onCardImageChange(index, $event)" accept="image/*" style="margin: 4px 0;" />
+              <input type="text" v-model="card.name" class="card-editor-name" style="margin: 4px 0; width: 120px;" />
+            </div>
+          </template>
         </div>
         <div class="settings-actions">
           <button class="settings-apply" @click="applyCards">应用卡片信息</button>
