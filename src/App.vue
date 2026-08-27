@@ -281,15 +281,7 @@ const cards = computed(() =>
   padding: 6px 14px;
   border-radius: 8px;
   cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.settings:hover .settings-toggle,
-.settings.open .settings-toggle {
-  opacity: 1;
-  pointer-events: auto;
+  /* Always visible - pointer-events handled by click handler */
 }
 
 .settings-panel {
