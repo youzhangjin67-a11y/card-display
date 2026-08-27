@@ -186,6 +186,39 @@ function onVideo(e) {
   }
 }
 
+
+function addNewCard() {
+  const last = editorCards.value[editorCards.value.length - 1] || { id: 0 }
+  const newId = last.id + 1
+  editorCards.value.push({
+    id: newId,
+    type: 'prop',
+    image: null,
+    name: `物品 ${newId}`,
+  })
+  cardEditorVisible.value = true
+}
+function removeCard(index) {
+  editorCards.value.splice(index, 1)
+  // Re-number IDs
+  editorCards.value.forEach((card, i) => {
+    card.id = i + 1
+    card.name = card.name || `物品 ${i + 1}`
+  })
+}
+
+
+
+
+function onCardImageChange(index, e) {
+  const file = e.target.files && e.target.files[0]
+  if (file) {
+    const objectUrl = URL.createObjectURL(file)
+    editorCards.value[index].image = objectUrl
+    showToast('卡片图片已更新')
+  }
+}
+
 function toggleSettings() {
   settingsOpen.value = !settingsOpen.value
   if (settingsOpen.value) {
