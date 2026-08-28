@@ -97,6 +97,14 @@
       </div>
     </div>
 
+    <div v-if="submitting" class="modal-mask loading-mask">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <div class="loading-text">提交中...</div>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+      </div>
+    </div>
+
     <div v-if="toast" class="toast">{{ toast }}</div>
   </div>
 </template>
@@ -217,7 +225,9 @@ const selectedCard = ref(null)
 const gameId = ref('')
 const toast = ref('')
 const submitted = ref(null)
+const submitting = ref(false)
 let toastTimer = null
+let submitTimer = null
 
 function openCard(card) {
   selectedCard.value = card
@@ -242,11 +252,16 @@ function showToast(msg) {
 
 function submit() {
   if (!gameId.value.trim()) return
-  submitted.value = {
-    image: selectedCard.value.image,
-    gameId: gameId.value.trim(),
-  }
-  closeModal()
+  submitting.value = true
+  clearTimeout(submitTimer)
+  submitTimer = setTimeout(() => {
+    submitting.value = false
+    submitted.value = {
+      image: selectedCard.value.image,
+      gameId: gameId.value.trim(),
+    }
+    closeModal()
+  }, 1500)
 }
 
 function toggleSettings() {
@@ -689,6 +704,63 @@ const cards = computed(() =>
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.loading-mask {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loading-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 4px solid #eee;
+  border-top-color: #ff4d4f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.loading-text {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 14px;
+}
+.progress-bar {
+  width: 160px;
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #ff4d4f, #ff7a45);
+  animation: fill 1.5s ease forwards;
+}
+@keyframes fill {
+  0% {
+    width: 0;
+  }
+  80% {
+    width: 85%;
+  }
+  100% {
+    width: 100%;
   }
 }
 </style>
