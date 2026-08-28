@@ -44,7 +44,7 @@
         </div>
         <div class="settings-actions">
           <button class="settings-apply" @click="addItem">添加物品</button>
-          <button class="settings-save" @click="saveConfig">保存配置</button>
+          <button class="settings-save" @click="saveConfig">💾 保存到服务器</button>
         </div>
       </div>
     </div>
@@ -145,10 +145,14 @@ const pageStyle = computed(() => {
 })
 
 const settingsOpen = ref(false)
-const adminToken = ref(localStorage.getItem('card_admin_token') || 'card-admin-token')
+const adminToken = ref(localStorage.getItem('card_admin_token') || 'ce4fc08efed4d18a2087989fd898206b8bdf00d5d841ce69')
 function onTokenInput() {
   localStorage.setItem('card_admin_token', adminToken.value)
 }
+
+// 待保存时上传的文件（选文件只本地预览，不立即写服务器）
+const bgImageFile = ref(null)
+const videoFile = ref(null)
 
 const rarities = ['金', '紫', '橙', '红']
 
@@ -326,12 +330,10 @@ async function onVideo(e) {
     alert('仅支持 MP4/MOV 格式的视频文件')
     return
   }
-  try {
-    bannerVideo.value = await uploadFile(file)
-    showToast('视频已设置')
-  } catch (err) {
-    alert(String(err.message || err))
-  }
+  // 仅本地预览，保存时才上传到服务器
+  videoFile.value = file
+  bannerVideo.value = URL.createObjectURL(file)
+  showToast('视频已选择，点「保存配置」后生效')
 }
 
 async function onBgImage(e) {
@@ -341,23 +343,23 @@ async function onBgImage(e) {
     alert('仅支持图片文件')
     return
   }
-  try {
-    bgImage.value = await uploadFile(file)
-    showToast('背景图片已设置')
-  } catch (err) {
-    alert(String(err.message || err))
-  }
+  // 仅本地预览，保存时才上传到服务器
+  bgImageFile.value = file
+  bgImage.value = URL.createObjectURL(file)
+  showToast('背景图片已选择，点「保存配置」后生效')
 }
 
 async function updateItemImage(item, e) {
   const file = e.target.files && e.target.files[0]
   if (!file) return
-  try {
-    item.image = await uploadFile(file)
-    showToast('物品图片已更新')
-  } catch (err) {
-    alert(String(err.message || err))
+  if (!file.type.startsWith('image/')) {
+    alert('仅支持图片文件')
+    return
   }
+  // 仅本地预览，保存时才上传到服务器
+  item._file = file
+  item.image = URL.createObjectURL(file)
+  showToast('物品图片已选择，点「保存配置」后生效')
 }
 
 function removeItem(id) {
@@ -375,15 +377,39 @@ function addItem() {
 }
 
 async function saveConfig() {
-  const payload = {
-    cards: items.value,
-    scrollText: scrollText.value,
-    bgImage: bgImage.value,
-    bgMaskColor: bgMaskColor.value,
-    bgMaskOpacity: bgMaskOpacity.value,
-    bannerVideo: bannerVideo.value,
-  }
   try {
+    // 1) 保存时才把待上传的文件真正写到服务器（需站长令牌）
+    if (videoFile.value) {
+      bannerVideo.value = await uploadFile(videoFile.value)
+      videoFile.value = null
+    }
+    if (bgImageFile.value) {
+      bgImage.value = await uploadFile(bgImageFile.value)
+      bgImageFile.value = null
+    }
+    for (const it of items.value) {
+      if (it._file) {
+        it.image = await uploadFile(it._file)
+        it._file = null
+      }
+    }
+    // 2) 组装干净配置（排除本地 File 等临时字段）
+    const cards = items.value.map((it) => ({
+      id: it.id,
+      type: it.type,
+      name: it.name,
+      image: it.image,
+      rarity: it.rarity,
+      limited: it.limited,
+    }))
+    const payload = {
+      cards,
+      scrollText: scrollText.value,
+      bgImage: bgImage.value,
+      bgMaskColor: bgMaskColor.value,
+      bgMaskOpacity: bgMaskOpacity.value,
+      bannerVideo: bannerVideo.value,
+    }
     const res = await fetch('/api/admin/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken.value },
@@ -393,7 +419,7 @@ async function saveConfig() {
       const d = await res.json().catch(() => ({}))
       throw new Error(d.error || '保存失败(' + res.status + ')')
     }
-    showToast('配置已保存')
+    showToast('配置已保存（含上传的图片/视频）')
   } catch (err) {
     alert(String(err.message || err))
   }
