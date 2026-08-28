@@ -18,10 +18,6 @@
           <label>滚动文字</label>
           <input type="text" v-model="scrollText" class="settings-input" />
         </div>
-        <div class="settings-row">
-          <label>卡片信息 (JSON)</label>
-          <textarea v-model="cardsJson" class="settings-textarea" spellcheck="false"></textarea>
-        </div>
         <div class="settings-row" v-if="cardEditorVisible">
           <label>卡片编辑</label>
           <button class="settings-apply" @click="saveCardEdits">保存卡片</button>
@@ -57,8 +53,7 @@
           </div>
         </div>
         <div class="settings-actions">
-          <button class="settings-apply" @click="applyCards">应用卡片信息</button>
-          <button class="settings-apply" @click="addItem" style="margin-left: 8px;">添加物品</button>
+          <button class="settings-apply" @click="addItem">添加物品</button>
         </div>
       </div>
     </div>
@@ -119,7 +114,6 @@ const scrollText = ref(
 
 const settingsOpen = ref(false)
 const cardEditorVisible = ref(false)
-const cardsJson = ref('')
 
 const rarities = ['金', '紫', '橙', '红']
 
@@ -311,19 +305,6 @@ function submit() {
 
 function toggleSettings() {
   settingsOpen.value = !settingsOpen.value
-  if (settingsOpen.value) {
-    cardsJson.value = JSON.stringify(
-      cards.value.map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        rarity: c.rarity,
-        limited: !!c.limited,
-      })),
-      null,
-      2
-    )
-  }
 }
 
 function onVideo(e) {
@@ -358,26 +339,6 @@ function addItem() {
     name: `新物品 ${nextId}`,
     image: wupinImages[0],
   })
-}
-
-function applyCards() {
-  try {
-    const val = cardsJson.value || '[]'
-    let arr = JSON.parse(val)
-    if (!Array.isArray(arr)) arr = []
-    const nextItems = arr.map((c, i) => ({
-      id: c.id != null ? c.id : i + 1,
-      type: c.type === 'role' ? 'role' : 'prop',
-      name: c.name || `物品 ${i + 1}`,
-      image: c.image || wupinImages[i % wupinImages.length] || null,
-      rarity: c.rarity !== undefined ? c.rarity : c.type === 'role' ? rarities[i % rarities.length] : undefined,
-      limited: c.limited === true || c.limited === 'true',
-    }))
-    items.value = nextItems
-    showToast('卡片信息已更新')
-  } catch (err) {
-    alert('JSON 格式错误，请检查后重试')
-  }
 }
 
 const cards = computed(() =>
@@ -476,23 +437,6 @@ const cards = computed(() =>
 }
 
 .settings-input:focus {
-  border-color: #ff6b6b;
-}
-
-.settings-textarea {
-  flex: 1;
-  min-width: 220px;
-  height: 120px;
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: monospace;
-  outline: none;
-  resize: vertical;
-}
-
-.settings-textarea:focus {
   border-color: #ff6b6b;
 }
 
