@@ -6,6 +6,11 @@
       </div>
       <div v-if="settingsOpen" class="settings-panel">
         <div class="settings-row">
+          <button class="settings-apply" @click="cardEditorVisible = !cardEditorVisible">
+            {{ cardEditorVisible ? '关闭卡片编辑' : '打开卡片编辑' }}
+          </button>
+        </div>
+        <div class="settings-row">
           <label>上传视频</label>
           <input type="file" accept="video/*" @change="onVideo" />
         </div>
@@ -13,6 +18,7 @@
           <label>滚动文字</label>
           <input type="text" v-model="scrollText" class="settings-input" />
         </div>
+<<<<<<< HEAD
         <div class="settings-list">
           <div v-for="item in items" :key="item.id" class="settings-item">
             <img :src="item.image" class="settings-thumb" alt="缩略图" />
@@ -25,6 +31,28 @@
               </select>
               <button class="settings-del" @click="removeItem(item.id)">删除</button>
             </div>
+=======
+        <div class="settings-row">
+          <label>卡片信息 (JSON)</label>
+          <textarea v-model="cardsJson" class="settings-textarea" spellcheck="false"></textarea>
+        </div>        <div class="settings-row" v-if="cardEditorVisible">
+          <label>卡片编辑</label>
+          <button class="settings-apply" @click="saveCardEdits">保存卡片</button>
+          <button @click="resetCardEdits" style="margin-left: 8px;">重置</button>
+        </div>
+        
+        <!-- Card Editor Panel -->
+        <div v-if="cardEditorVisible" class="card-editor-panel">
+          <div class="card-editor-toolbar">
+            <button @click="addNewCard" style="margin-right: 8px;">添加卡片</button>
+          </div>
+          
+          <div class="card-editor-row" v-for="(card, index) in editorCards" :key="card.id">
+            <span class="card-editor-label">#{{ index + 1 }}</span>
+            <input type="file" @change="onCardImageChange(index, $event)" accept="image/*" style="margin: 4px 0;" />
+            <input type="text" v-model="card.name" class="card-editor-name" style="margin: 4px 0; width: 120px;" placeholder="卡片名称" />
+            <button @click="removeCard(index)" style="margin-left: 8px; color: #d00;">删除</button>
+>>>>>>> 7cb6ff7fd1a0222f4603b31c928de3c1d35c93f0
           </div>
         </div>
         <div class="settings-actions">
@@ -41,7 +69,6 @@
         muted
         loop
         playsinline
-        controls
       ></video>
     </div>
     <div class="scroll-title">
@@ -84,14 +111,19 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Card from '@/components/Card.vue'
 
-const bannerVideo = ref('/banner.mp4')
+const bannerVideo = ref('/video_activity.mp4')
 const scrollText = ref(
   '欢迎来到卡牌陈列馆，全服限时活动火热进行中，稀有道具限时掉落，敬请关注！'
 )
 
 const settingsOpen = ref(false)
+<<<<<<< HEAD
 
 const rarities = ['金', '紫', '橙', '红']
+=======
+const cardEditorVisible = ref(false)
+const edits = ref({})
+>>>>>>> 7cb6ff7fd1a0222f4603b31c928de3c1d35c93f0
 
 const images = import.meta.glob('./assets/wupin/*.png', { eager: true, import: 'default' })
 
@@ -201,7 +233,100 @@ function submit() {
 
 function onVideo(e) {
   const file = e.target.files && e.target.files[0]
-  if (file) bannerVideo.value = URL.createObjectURL(file)
+  if (file) {
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/mpeg', 'video/x-m4v', 'video/3gpp']
+    if (validTypes.includes(file.type) || file.name.lowercase().endsWith('.mp4') || file.name.lowercase().endsWith('.mov')) {
+      URL.revokeObjectURL(bannerVideo.value)
+      bannerVideo.value = URL.createObjectURL(file)
+      showToast('视频已设置')
+    } else {
+      alert('仅支持 MP4/MOV 格式的视频文件')
+    }
+  }
+}
+
+
+function addNewCard() {
+  const last = editorCards.value[editorCards.value.length - 1] || { id: 0 }
+  const newId = last.id + 1
+  editorCards.value.push({
+    id: newId,
+    type: 'prop',
+    image: null,
+    name: `物品 ${newId}`,
+  })
+  cardEditorVisible.value = true
+}
+function removeCard(index) {
+  editorCards.value.splice(index, 1)
+  // Re-number IDs
+  editorCards.value.forEach((card, i) => {
+    card.id = i + 1
+    card.name = card.name || `物品 ${i + 1}`
+  })
+}
+
+
+
+
+function onCardImageChange(index, e) {
+  const file = e.target.files && e.target.files[0]
+  if (file) {
+    const objectUrl = URL.createObjectURL(file)
+    editorCards.value[index].image = objectUrl
+    showToast('卡片图片已更新')
+  }
+
+
+function saveCardEdits() {
+  try {
+    // Merge editorCards into cards
+    const editorMap = {}
+    editorCards.value.forEach(card => {
+      editorMap[card.id] = card
+    })
+    
+    // Update cards: replace edited ones, keep rest
+    const updatedCards = cards.value.map(c => {
+      if (editorMap[c.id]) {
+        return { ...c, name: editorMap[c.id].name, image: editorMap[c.id].image }
+      }
+      return c
+    })
+    
+    // Add new cards that don't exist yet
+    const maxExistingId = Math.max(...cards.value.map(c => c.id), 0)
+    const newCards = editorCards.value.filter(c => c.id > maxExistingId)
+    updatedCards.push(...newCards)
+    
+    cards.value = updatedCards
+    editorCards.value = updatedCards.map((c, i) => ({
+      id: i + 1,
+      type: c.type || 'prop',
+      image: c.image || null,
+      name: c.name || `物品 ${i + 1}`,
+    }))
+    cardEditorVisible.value = false
+    showToast('卡片编辑已保存')
+  } catch (e) {
+    showToast('保存失败，请重试')
+    console.error(e)
+  }
+}
+
+
+
+function resetCardEdits() {
+  editorCards.value = cards.value.map((c, i) => ({
+    id: i + 1,
+    type: c.type || 'prop',
+    image: c.image || null,
+    name: c.name || `物品 ${i + 1}`,
+  }))
+  showToast('卡片已重置')
+  cardEditorVisible.value = false
+}
+
 }
 
 function updateItemImage(item, e) {
@@ -213,6 +338,7 @@ function removeItem(id) {
   items.value = items.value.filter((it) => it.id !== id)
 }
 
+<<<<<<< HEAD
 function addItem() {
   const nextId = items.value.reduce((m, it) => Math.max(m, it.id), 0) + 1
   items.value.push({
@@ -221,6 +347,30 @@ function addItem() {
     name: `新物品 ${nextId}`,
     image: wupinImages[0],
   })
+=======
+function applyCards() {
+  try {
+    const val = cardsJson.value || '[]'
+    let arr = JSON.parse(val)
+    if (!Array.isArray(arr)) arr = []
+    // Convert to map by id
+    const map = {}
+    for (const c of arr) {
+      if (c && c.id != null) {
+        map[c.id] = {
+          name: c.name || `物品 ${c.id}`,
+          type: c.type || 'prop',
+          rarity: c.rarity !== undefined ? c.rarity : 1,
+          limited: c.limited === true || c.limited === 'true',
+        }
+      }
+    }
+    edits.value = map
+    showToast('卡片信息已更新')
+  } catch (err) {
+    alert('JSON 格式错误，请检查后重试')
+  }
+>>>>>>> 7cb6ff7fd1a0222f4603b31c928de3c1d35c93f0
 }
 
 const cards = computed(() =>
@@ -282,6 +432,7 @@ const cards = computed(() =>
   padding: 6px 14px;
   border-radius: 8px;
   cursor: pointer;
+<<<<<<< HEAD
   opacity: 0.55;
   transition: opacity 0.2s ease;
 }
@@ -289,6 +440,9 @@ const cards = computed(() =>
 .settings:hover .settings-toggle,
 .settings.open .settings-toggle {
   opacity: 1;
+=======
+  /* Always visible - pointer-events handled by click handler */
+>>>>>>> 7cb6ff7fd1a0222f4603b31c928de3c1d35c93f0
 }
 
 .settings-panel {
