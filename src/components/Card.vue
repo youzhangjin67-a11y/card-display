@@ -1,7 +1,7 @@
 <template>
   <div class="card" :class="[type, card.limited ? 'limited' : '']">
     <span class="badge">{{ index + 1 }}</span>
-    <div class="card-top">{{ card.timestamp }}</div>
+    <!-- <div class="card-top">{{ card.timestamp }}</div> -->
     <div class="card-body">
       <template v-if="type === 'prop'">
         <img :src="card.image" alt="道具图片" class="prop-image" />
