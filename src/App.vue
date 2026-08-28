@@ -26,7 +26,7 @@
         </div>
         <div class="settings-row">
           <label>管理令牌</label>
-          <input type="text" v-model="adminToken" @input="onTokenInput" class="settings-input" placeholder="保存/上传所需的后台令牌" />
+          <input type="text" v-model="adminToken" @input="onTokenInput" class="settings-input" placeholder="请输入站长令牌（保存/上传需要，会自动记住）" />
         </div>
         <div class="settings-list">
           <div v-for="item in items" :key="item.id" class="settings-item">
@@ -145,7 +145,8 @@ const pageStyle = computed(() => {
 })
 
 const settingsOpen = ref(false)
-const adminToken = ref(localStorage.getItem('card_admin_token') || 'ce4fc08efed4d18a2087989fd898206b8bdf00d5d841ce69')
+// 令牌不写死在源码里（避免泄露）；首次使用在设置面板手动输入，会存 localStorage 自动记住
+const adminToken = ref(localStorage.getItem('card_admin_token') || '')
 function onTokenInput() {
   localStorage.setItem('card_admin_token', adminToken.value)
 }
