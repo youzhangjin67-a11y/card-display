@@ -1,6 +1,7 @@
 <template>
   <div class="page">
     <div class="settings" :class="{ open: settingsOpen }">
+      <div class="settings-hotzone" @click="toggleSettings"></div>
       <div class="settings-bar" @click="toggleSettings">
         <button class="settings-toggle" @click.stop="toggleSettings">⚙ 设置</button>
       </div>
@@ -382,6 +383,15 @@ const cards = computed(() =>
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
+.settings-hotzone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: pointer;
+}
+
 .settings-bar {
   height: 44px;
   display: flex;
@@ -389,6 +399,16 @@ const cards = computed(() =>
   justify-content: flex-end;
   padding: 0 12px;
   cursor: pointer;
+  /* Hidden by default, revealed when hovering/clicking the hotzone or when open */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.settings:hover .settings-bar,
+.settings.open .settings-bar {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .settings-toggle {
