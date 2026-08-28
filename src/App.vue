@@ -24,6 +24,10 @@
           <label>滚动文字</label>
           <input type="text" v-model="scrollText" class="settings-input" />
         </div>
+        <div class="settings-row">
+          <label>管理令牌</label>
+          <input type="text" v-model="adminToken" @input="onTokenInput" class="settings-input" placeholder="保存/上传所需的后台令牌" />
+        </div>
         <div class="settings-list">
           <div v-for="item in items" :key="item.id" class="settings-item">
             <img :src="item.image" class="settings-thumb" alt="缩略图" />
@@ -40,6 +44,7 @@
         </div>
         <div class="settings-actions">
           <button class="settings-apply" @click="addItem">添加物品</button>
+          <button class="settings-save" @click="saveConfig">保存配置</button>
         </div>
       </div>
     </div>
@@ -140,6 +145,10 @@ const pageStyle = computed(() => {
 })
 
 const settingsOpen = ref(false)
+const adminToken = ref(localStorage.getItem('card_admin_token') || 'card-admin-token')
+function onTokenInput() {
+  localStorage.setItem('card_admin_token', adminToken.value)
+}
 
 const rarities = ['金', '紫', '橙', '红']
 
@@ -153,8 +162,9 @@ const wupinImages = Object.keys(images)
   })
   .map((key) => images[key])
 
-const items = ref(
-  wupinImages.map((image, i) => {
+const items = ref([])
+function defaultItems() {
+  return wupinImages.map((image, i) => {
     const type = i % 4 === 1 ? 'role' : 'prop'
     const item = {
       id: i + 1,
@@ -168,7 +178,7 @@ const items = ref(
     }
     return item
   })
-)
+}
 
 const offsetMs = ref(0)
 const now = ref(new Date())
@@ -210,12 +220,34 @@ async function syncInternetTime() {
 }
 
 onMounted(async () => {
+  await loadConfig()
   await syncInternetTime()
   now.value = new Date(Date.now() + offsetMs.value)
   timer = setInterval(() => {
     now.value = new Date(Date.now() + offsetMs.value)
   }, 1000)
 })
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config')
+    if (!res.ok) throw new Error('http ' + res.status)
+    const cfg = await res.json()
+    if (Array.isArray(cfg.cards) && cfg.cards.length) {
+      items.value = cfg.cards.map((c) => ({ ...c }))
+    } else {
+      items.value = defaultItems()
+    }
+    if (cfg.scrollText != null) scrollText.value = cfg.scrollText
+    if (cfg.bgImage != null) bgImage.value = cfg.bgImage
+    if (cfg.bgMaskColor != null) bgMaskColor.value = cfg.bgMaskColor
+    if (cfg.bgMaskOpacity != null) bgMaskOpacity.value = cfg.bgMaskOpacity
+    if (cfg.bannerVideo != null) bannerVideo.value = cfg.bannerVideo
+  } catch (e) {
+    console.warn('加载配置失败，使用默认数据', e)
+    items.value = defaultItems()
+  }
+}
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
@@ -268,37 +300,64 @@ function toggleSettings() {
   settingsOpen.value = !settingsOpen.value
 }
 
-function onVideo(e) {
+async function uploadFile(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'x-admin-token': adminToken.value },
+    body: fd,
+  })
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}))
+    throw new Error(d.error || '上传失败(' + res.status + ')')
+  }
+  const d = await res.json()
+  return d.url
+}
+
+async function onVideo(e) {
   const file = e.target.files && e.target.files[0]
-  if (file) {
-    const validTypes = ['video/mp4', 'video/quicktime', 'video/mpeg', 'video/x-m4v', 'video/3gpp']
-    const name = file.name.toLowerCase()
-    if (validTypes.includes(file.type) || name.endsWith('.mp4') || name.endsWith('.mov')) {
-      URL.revokeObjectURL(bannerVideo.value)
-      bannerVideo.value = URL.createObjectURL(file)
-      showToast('视频已设置')
-    } else {
-      alert('仅支持 MP4/MOV 格式的视频文件')
-    }
+  if (!file) return
+  const lower = file.name.toLowerCase()
+  const okType = file.type === 'video/mp4' || file.type === 'video/quicktime' || file.type === 'video/mpeg'
+  const okName = lower.endsWith('.mp4') || lower.endsWith('.mov')
+  if (!(okType || okName)) {
+    alert('仅支持 MP4/MOV 格式的视频文件')
+    return
+  }
+  try {
+    bannerVideo.value = await uploadFile(file)
+    showToast('视频已设置')
+  } catch (err) {
+    alert(String(err.message || err))
   }
 }
 
-function onBgImage(e) {
+async function onBgImage(e) {
   const file = e.target.files && e.target.files[0]
-  if (file) {
-    if (file.type.startsWith('image/')) {
-      URL.revokeObjectURL(bgImage.value)
-      bgImage.value = URL.createObjectURL(file)
-      showToast('背景图片已设置')
-    } else {
-      alert('仅支持图片文件')
-    }
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    alert('仅支持图片文件')
+    return
+  }
+  try {
+    bgImage.value = await uploadFile(file)
+    showToast('背景图片已设置')
+  } catch (err) {
+    alert(String(err.message || err))
   }
 }
 
-function updateItemImage(item, e) {
+async function updateItemImage(item, e) {
   const file = e.target.files && e.target.files[0]
-  if (file) item.image = URL.createObjectURL(file)
+  if (!file) return
+  try {
+    item.image = await uploadFile(file)
+    showToast('物品图片已更新')
+  } catch (err) {
+    alert(String(err.message || err))
+  }
 }
 
 function removeItem(id) {
@@ -311,8 +370,33 @@ function addItem() {
     id: nextId,
     type: 'prop',
     name: `新物品 ${nextId}`,
-    image: wupinImages[0],
+    image: items.value[0]?.image || wupinImages[0] || '',
   })
+}
+
+async function saveConfig() {
+  const payload = {
+    cards: items.value,
+    scrollText: scrollText.value,
+    bgImage: bgImage.value,
+    bgMaskColor: bgMaskColor.value,
+    bgMaskOpacity: bgMaskOpacity.value,
+    bannerVideo: bannerVideo.value,
+  }
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken.value },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      throw new Error(d.error || '保存失败(' + res.status + ')')
+    }
+    showToast('配置已保存')
+  } catch (err) {
+    alert(String(err.message || err))
+  }
 }
 
 const cards = computed(() =>
@@ -517,6 +601,18 @@ const cards = computed(() =>
   padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.settings-save {
+  border: none;
+  background: linear-gradient(135deg, #6a9eff, #3b6bff);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: 8px;
 }
 
 .video-banner {
