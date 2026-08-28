@@ -1,11 +1,21 @@
 <template>
-  <div class="page">
+  <div class="page" :style="pageStyle">
     <div class="settings" :class="{ open: settingsOpen }">
       <div class="settings-hotzone" @click="toggleSettings"></div>
       <div class="settings-bar" @click="toggleSettings">
         <button class="settings-toggle" @click.stop="toggleSettings">⚙ 设置</button>
       </div>
       <div v-if="settingsOpen" class="settings-panel">
+        <div class="settings-row">
+          <label>背景图片</label>
+          <input type="file" accept="image/*" @change="onBgImage" />
+        </div>
+        <div class="settings-row">
+          <label>蒙版颜色</label>
+          <input type="color" v-model="bgMaskColor" class="settings-color" />
+          <input type="range" min="0" max="100" v-model.number="bgMaskOpacity" class="settings-range" />
+          <span class="settings-mask-val">{{ bgMaskOpacity }}%</span>
+        </div>
         <div class="settings-row">
           <label>上传视频</label>
           <input type="file" accept="video/*" @change="onVideo" />
@@ -75,6 +85,18 @@
       </div>
     </div>
 
+    <div v-if="submitted" class="modal-mask" @click.self="closeSubmitted">
+      <div class="modal">
+        <button class="modal-close" @click="closeSubmitted">×</button>
+        <img :src="submitted.image" class="modal-img" alt="道具图片" />
+        <div class="modal-game">游戏名称：{{ submitted.gameId }}</div>
+        <div class="modal-tip">中途退出直播间或直播中断会失败</div>
+        <div class="modal-tip">道具将于 3-7天发送至游戏邮件</div>
+        <div class="modal-tip">请注意查收</div>
+        <button class="modal-confirm" @click="closeSubmitted">确认</button>
+      </div>
+    </div>
+
     <div v-if="toast" class="toast">{{ toast }}</div>
   </div>
 </template>
@@ -87,6 +109,27 @@ const bannerVideo = ref('/video_activity.mp4')
 const scrollText = ref(
   '欢迎来到卡牌陈列馆，全服限时活动火热进行中，稀有道具限时掉落，敬请关注！'
 )
+
+const bgImage = ref('')
+const bgMaskColor = ref('#000000')
+const bgMaskOpacity = ref(35)
+const bgMask = computed(() => {
+  const c = bgMaskColor.value
+  const r = parseInt(c.slice(1, 3), 16)
+  const g = parseInt(c.slice(3, 5), 16)
+  const b = parseInt(c.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${bgMaskOpacity.value / 100})`
+})
+const pageStyle = computed(() => {
+  if (!bgImage.value) return {}
+  return {
+    backgroundImage: `linear-gradient(${bgMask.value}, ${bgMask.value}), url(${bgImage.value})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
+  }
+})
 
 const settingsOpen = ref(false)
 
@@ -173,6 +216,7 @@ onUnmounted(() => {
 const selectedCard = ref(null)
 const gameId = ref('')
 const toast = ref('')
+const submitted = ref(null)
 let toastTimer = null
 
 function openCard(card) {
@@ -182,6 +226,10 @@ function openCard(card) {
 
 function closeModal() {
   selectedCard.value = null
+}
+
+function closeSubmitted() {
+  submitted.value = null
 }
 
 function showToast(msg) {
@@ -194,8 +242,11 @@ function showToast(msg) {
 
 function submit() {
   if (!gameId.value.trim()) return
+  submitted.value = {
+    image: selectedCard.value.image,
+    gameId: gameId.value.trim(),
+  }
   closeModal()
-  showToast('已提交，72小时游戏邮件内领取')
 }
 
 function toggleSettings() {
@@ -213,6 +264,19 @@ function onVideo(e) {
       showToast('视频已设置')
     } else {
       alert('仅支持 MP4/MOV 格式的视频文件')
+    }
+  }
+}
+
+function onBgImage(e) {
+  const file = e.target.files && e.target.files[0]
+  if (file) {
+    if (file.type.startsWith('image/')) {
+      URL.revokeObjectURL(bgImage.value)
+      bgImage.value = URL.createObjectURL(file)
+      showToast('背景图片已设置')
+    } else {
+      alert('仅支持图片文件')
     }
   }
 }
@@ -256,8 +320,29 @@ const cards = computed(() =>
 .page {
   background-color: #f5f5f5;
   min-height: 100vh;
-  padding: 2px;
-  padding-top: 46px;
+  padding: 0;
+}
+
+.settings-color {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.settings-range {
+  flex: 1;
+  min-width: 80px;
+}
+
+.settings-mask-val {
+  font-size: 12px;
+  color: #666;
+  width: 38px;
+  text-align: right;
 }
 
 .settings {
@@ -322,8 +407,6 @@ const cards = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 1200px;
-  margin: 0 auto;
 }
 
 .settings-row {
@@ -422,13 +505,12 @@ const cards = computed(() =>
 }
 
 .video-banner {
-  max-width: 1200px;
-  margin: 0 auto 20px;
+  margin: 0 0 20px;
 }
 
 .banner-video {
   width: 100%;
-  height: 320px;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 12px;
   display: block;
@@ -437,8 +519,7 @@ const cards = computed(() =>
 }
 
 .scroll-title {
-  max-width: 1200px;
-  margin: 0 auto 16px;
+  margin: 0 0 16px;
   overflow: hidden;
   white-space: nowrap;
   background: linear-gradient(90deg, #fff3d6, #ffe3ef);
@@ -472,8 +553,7 @@ const cards = computed(() =>
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  max-width: 1200px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .modal-mask {
@@ -556,6 +636,20 @@ const cards = computed(() =>
   cursor: pointer;
 }
 
+.modal-game {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 8px 0 12px;
+}
+
+.modal-tip {
+  font-size: 13px;
+  color: #e04848;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
 .modal-confirm:active {
   opacity: 0.85;
 }
@@ -596,5 +690,16 @@ const cards = computed(() =>
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
+}
+</style>
+
+<style>
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+#app {
+  min-height: 100vh;
 }
 </style>
