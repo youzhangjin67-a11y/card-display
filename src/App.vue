@@ -451,6 +451,9 @@ const cards = computed(() =>
   right: 0;
   z-index: 1500;
   background: transparent;
+  max-height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -471,12 +474,17 @@ const cards = computed(() =>
 }
 
 .settings-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding: 0 12px;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
   /* Hidden by default, revealed when hovering/clicking the hotzone or when open */
   opacity: 0;
   pointer-events: none;
