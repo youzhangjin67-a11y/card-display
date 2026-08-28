@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <div class="settings" :class="{ open: settingsOpen }">
-      <div class="settings-bar">
-        <button class="settings-toggle" @click="toggleSettings">⚙ 设置</button>
+      <div class="settings-bar" @click="toggleSettings">
+        <button class="settings-toggle" @click.stop="toggleSettings">⚙ 设置</button>
       </div>
       <div v-if="settingsOpen" class="settings-panel">
         <div class="settings-row">
@@ -13,12 +13,22 @@
           <label>滚动文字</label>
           <input type="text" v-model="scrollText" class="settings-input" />
         </div>
-        <div class="settings-row">
-          <label>卡片信息 (JSON)</label>
-          <textarea v-model="cardsJson" class="settings-textarea" spellcheck="false"></textarea>
+        <div class="settings-list">
+          <div v-for="item in items" :key="item.id" class="settings-item">
+            <img :src="item.image" class="settings-thumb" alt="缩略图" />
+            <div class="settings-item-fields">
+              <input type="file" accept="image/*" @change="updateItemImage(item, $event)" />
+              <input type="text" v-model="item.name" class="settings-input" placeholder="名称" />
+              <select v-model="item.type" class="settings-input">
+                <option value="prop">道具</option>
+                <option value="role">角色</option>
+              </select>
+              <button class="settings-del" @click="removeItem(item.id)">删除</button>
+            </div>
+          </div>
         </div>
         <div class="settings-actions">
-          <button class="settings-apply" @click="applyCards">应用卡片信息</button>
+          <button class="settings-apply" @click="addItem">添加物品</button>
         </div>
       </div>
     </div>
@@ -80,7 +90,8 @@ const scrollText = ref(
 )
 
 const settingsOpen = ref(false)
-const edits = ref({})
+
+const rarities = ['金', '紫', '橙', '红']
 
 const images = import.meta.glob('./assets/wupin/*.png', { eager: true, import: 'default' })
 
@@ -91,6 +102,23 @@ const wupinImages = Object.keys(images)
     return na - nb
   })
   .map((key) => images[key])
+
+const items = ref(
+  wupinImages.map((image, i) => {
+    const type = i % 4 === 1 ? 'role' : 'prop'
+    const item = {
+      id: i + 1,
+      type,
+      name: `物品 ${i + 1}`,
+      image,
+    }
+    if (type === 'role') {
+      item.rarity = rarities[i % rarities.length]
+      item.limited = i % 8 === 1
+    }
+    return item
+  })
+)
 
 const offsetMs = ref(0)
 const now = ref(new Date())
@@ -143,8 +171,6 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
-const rarities = ['金', '紫', '橙', '红']
-
 const selectedCard = ref(null)
 const gameId = ref('')
 const toast = ref('')
@@ -178,64 +204,37 @@ function onVideo(e) {
   if (file) bannerVideo.value = URL.createObjectURL(file)
 }
 
-function toggleSettings() {
-  settingsOpen.value = !settingsOpen.value
-  if (settingsOpen.value) {
-    cardsJson.value = JSON.stringify(
-      cards.value.map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        rarity: c.rarity,
-        limited: !!c.limited,
-      })),
-      null,
-      2
-    )
-  }
+function updateItemImage(item, e) {
+  const file = e.target.files && e.target.files[0]
+  if (file) item.image = URL.createObjectURL(file)
 }
 
-const cardsJson = ref('')
+function removeItem(id) {
+  items.value = items.value.filter((it) => it.id !== id)
+}
 
-function applyCards() {
-  try {
-    const arr = JSON.parse(cardsJson.value)
-    const map = {}
-    for (const c of arr) {
-      if (c && c.id != null) {
-        map[c.id] = {
-          name: c.name,
-          type: c.type,
-          rarity: c.rarity,
-          limited: !!c.limited,
-        }
-      }
-    }
-    edits.value = map
-    showToast('卡片信息已更新')
-  } catch (err) {
-    alert('JSON 格式错误，请检查后重试')
-  }
+function addItem() {
+  const nextId = items.value.reduce((m, it) => Math.max(m, it.id), 0) + 1
+  items.value.push({
+    id: nextId,
+    type: 'prop',
+    name: `新物品 ${nextId}`,
+    image: wupinImages[0],
+  })
 }
 
 const cards = computed(() =>
-  wupinImages.map((image, i) => {
+  items.value.map((it, i) => {
     const ts = new Date(now.value.getTime() - i * 5000)
-    const type = i % 4 === 1 ? 'role' : 'prop'
-    const card = {
-      id: i + 1,
-      type,
+    return {
+      id: it.id,
+      type: it.type,
       timestamp: formatTime(ts),
-      image,
-      name: `物品 ${i + 1}`,
+      image: it.image,
+      name: it.name,
+      rarity: it.rarity,
+      limited: it.limited,
     }
-    if (type === 'role') {
-      card.rarity = rarities[i % rarities.length]
-      card.limited = i % 8 === 1
-    }
-    const e = edits.value[card.id]
-    if (e) Object.assign(card, e)
-    return card
   })
 )
 </script>
@@ -270,6 +269,7 @@ const cards = computed(() =>
   display: flex;
   align-items: center;
   padding: 0 12px;
+  cursor: pointer;
 }
 
 .settings-toggle {
@@ -330,26 +330,60 @@ const cards = computed(() =>
   border-color: #ff6b6b;
 }
 
-.settings-textarea {
-  flex: 1;
-  min-width: 220px;
-  height: 120px;
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: monospace;
-  outline: none;
-  resize: vertical;
-}
-
-.settings-textarea:focus {
-  border-color: #ff6b6b;
-}
-
 .settings-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.settings-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.settings-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  flex-shrink: 0;
+}
+
+.settings-item-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+
+.settings-item-fields .settings-input {
+  min-width: 120px;
+  flex: 1;
+}
+
+.settings-del {
+  border: none;
+  background: #ff5f5f;
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .settings-apply {
