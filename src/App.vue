@@ -7,11 +7,6 @@
       </div>
       <div v-if="settingsOpen" class="settings-panel">
         <div class="settings-row">
-          <button class="settings-apply" @click="toggleCardEditor">
-            {{ cardEditorVisible ? '关闭卡片编辑' : '打开卡片编辑' }}
-          </button>
-        </div>
-        <div class="settings-row">
           <label>上传视频</label>
           <input type="file" accept="video/*" @change="onVideo" />
         </div>
@@ -19,26 +14,6 @@
           <label>滚动文字</label>
           <input type="text" v-model="scrollText" class="settings-input" />
         </div>
-        <div class="settings-row" v-if="cardEditorVisible">
-          <label>卡片编辑</label>
-          <button class="settings-apply" @click="saveCardEdits">保存卡片</button>
-          <button @click="resetCardEdits" style="margin-left: 8px;">重置</button>
-        </div>
-
-        <!-- Card Editor Panel -->
-        <div v-if="cardEditorVisible" class="card-editor-panel">
-          <div class="card-editor-toolbar">
-            <button @click="addNewCard" style="margin-right: 8px;">添加卡片</button>
-          </div>
-
-          <div class="card-editor-row" v-for="(card, index) in editorCards" :key="card.id">
-            <span class="card-editor-label">#{{ index + 1 }}</span>
-            <input type="file" @change="onCardImageChange(index, $event)" accept="image/*" style="margin: 4px 0;" />
-            <input type="text" v-model="card.name" class="card-editor-name" style="margin: 4px 0; width: 120px;" placeholder="卡片名称" />
-            <button @click="removeCard(index)" style="margin-left: 8px; color: #d00;">删除</button>
-          </div>
-        </div>
-
         <div class="settings-list">
           <div v-for="item in items" :key="item.id" class="settings-item">
             <img :src="item.image" class="settings-thumb" alt="缩略图" />
@@ -114,7 +89,6 @@ const scrollText = ref(
 )
 
 const settingsOpen = ref(false)
-const cardEditorVisible = ref(false)
 
 const rarities = ['金', '紫', '橙', '红']
 
@@ -144,86 +118,6 @@ const items = ref(
     return item
   })
 )
-
-// ---- Card editor (working copy of items) ----
-const editorCards = ref([])
-
-function syncEditorFromItems() {
-  editorCards.value = items.value.map((it, i) => ({
-    id: it.id,
-    type: it.type || 'prop',
-    image: it.image || null,
-    name: it.name || `物品 ${i + 1}`,
-  }))
-}
-
-function toggleCardEditor() {
-  cardEditorVisible.value = !cardEditorVisible.value
-  if (cardEditorVisible.value) syncEditorFromItems()
-}
-
-function addNewCard() {
-  const last = editorCards.value[editorCards.value.length - 1] || { id: 0 }
-  const newId = last.id + 1
-  editorCards.value.push({
-    id: newId,
-    type: 'prop',
-    image: null,
-    name: `物品 ${newId}`,
-  })
-  cardEditorVisible.value = true
-}
-
-function removeCard(index) {
-  editorCards.value.splice(index, 1)
-  // Re-number IDs
-  editorCards.value.forEach((card, i) => {
-    card.id = i + 1
-    card.name = card.name || `物品 ${i + 1}`
-  })
-}
-
-function onCardImageChange(index, e) {
-  const file = e.target.files && e.target.files[0]
-  if (file) {
-    editorCards.value[index].image = URL.createObjectURL(file)
-    showToast('卡片图片已更新')
-  }
-}
-
-function saveCardEdits() {
-  try {
-    const editorMap = {}
-    editorCards.value.forEach((card) => {
-      editorMap[card.id] = card
-    })
-
-    // Update existing items, keep the rest
-    const updatedItems = items.value.map((it) => {
-      if (editorMap[it.id]) {
-        return { ...it, name: editorMap[it.id].name, image: editorMap[it.id].image }
-      }
-      return it
-    })
-
-    // Append brand-new cards that don't exist yet
-    const maxExistingId = Math.max(...items.value.map((it) => it.id), 0)
-    const newCards = editorCards.value.filter((c) => c.id > maxExistingId)
-    updatedItems.push(...newCards)
-
-    items.value = updatedItems
-    cardEditorVisible.value = false
-    showToast('卡片编辑已保存')
-  } catch (e) {
-    showToast('保存失败，请重试')
-    console.error(e)
-  }
-}
-
-function resetCardEdits() {
-  syncEditorFromItems()
-  showToast('卡片已重置')
-}
 
 const offsetMs = ref(0)
 const now = ref(new Date())
